@@ -10,21 +10,28 @@ const REGISTROS = '102dpaslGU3nYAfQfJIzG5ZY188rl8CoJNGrrlR3wDn8';
 
 class Cookie{
 	constructor(cookie){
-		this._cookie_raw = cookie;
-		this._cookie = cookie.match(/^(\w+)=.*/)[1];
-		this._value = cookie.match(/^.*=(\w+);/)[1];
-		this._path = cookie.match(/path=(\w+);/)[1];
-		this._expires = cookie.match(/expires=(\w+);/)[1];
-		this._date_expires = new Date(this._expires);
-		this._domain = cookie.match(/domain=(\w+);/)[1];
-		this._samesite = cookie.match(/SameSite=(\w+);/)[1];
-		this._secure = cookie.test(/Secure/);
-		this._http_only = cookie.test(/HttpOnly/);
+		this._cookie_dict = {};
+		this._cookie_slice = cookie.split(';');
+		for(let c in this._cookie_slice){
+			let _c_split = this._cookie_slice[c].split('=');
+			this._cookie_dict[_c_split[0].toUpperCase()] = _c_split[1];
+		}
+		this._cookie = cookie.match(/^(.+?)=/)[1];
+		this._value = cookie.match(/^.+?=(.+?)\b;?/)[1];
+		this._path = /path=/i.test(cookie) ? this._cookie_dict['PATH'] : '';
+		this._expires = /expires=/i.test(cookie) ? this._cookie_dict['EXPIRES'] : '';
+		if(this._expires){
+			this._date_expires = new Date(this._expires);
+		}
+		this._domain = /domain=/i.test(cookie) ? this._cookie_dict['DOMAIN'] : '';
+		this._samesite = /SameSite=/i.test(cookie) ? this._cookie_dict['SAMESITE'] : '';
+		this._secure = /Secure/i.test(cookie);
+		this._http_only = /HttpOnly/i.test(cookie);
 	}
 	get cookie(){
 		return this._cookie;
 	}
-	get valor(){
+	get value(){
 		return this._value;
 	}
 	get path(){
@@ -50,7 +57,7 @@ class Cookie{
 	}
 }
 
-class Request{
+class HTTPRequest{
 	constructor(){
 		this._r = UrlFetchApp.fetch;
 		this._resposta = null; // Google's HTTPResponse
@@ -59,8 +66,8 @@ class Request{
 			cookies: [],
 			registrar(cookie){
 				for(let c in this.cookies){
-					if(cookie.cookie === c.cookie){
-						if(cookie.valor !== c.valor){
+					if(cookie.cookie === this.cookies[c].cookie){
+						if(cookie.value !== this.cookies[c].value){
 							this.cookies.push(cookie);
 							break;
 						}
@@ -71,25 +78,47 @@ class Request{
 				}
 			},
 			cookies(){
-				return this._cookies;
+				return this.cookies;
+			},
+			str(){
+				let cookies = '';
+				for(let cookie in this.cookies){
+					cookies += `${this.cookies[cookie].cookie}=${this.cookies[cookie].value};`;
+				}
+				return cookies.slice(0, -1);
 			},
 		}
+	}
+	set_cookies(){
+		return this._cookies.str();
 	}
 	_request(metodo, url, opcoes){
 		// url = str, opcoes = dict
 		let _opcoes = {
-			'method': metodo
+			'method': metodo,
+			'headers': {
+				'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 '
+				+ '(KHTML, like Gecko) Chrome/102.0.5005.115 Safari/537.36',
+				'Cookies': this.set_cookies(),
+			},
 		};
 		if(! opcoes){
 			opcoes = _opcoes
 		}
 		if(opcoes['method'] !== metodo || ! 'method' in opcoes){
 			opcoes['method'] = metodo;
+		} else if (! opcoes['headers']){
+			opcoes['headers'] = _opcoes['headers'];
 		}
 		this._resposta = this._r(url, opcoes);
 		this._headers = this._resposta.getAllHeaders();
-		for(let cookie in this._headers['Set-Cookie']){
-			this._cookies.registrar(new Cookie(this._headers['Set-Cookie'][cookie]));
+		console.log(this._headers);
+		if(this._headers['Set-Cookie'] instanceof Array){
+			for(let cookie in this._headers['Set-Cookie']){
+				this._cookies.registrar(new Cookie(this._headers['Set-Cookie'][cookie]));
+			}
+		} else {
+			this._cookies.registrar(new Cookie(this._headers['Set-Cookie']));
 		}
 	}
 	get(url, opcoes){
@@ -117,18 +146,18 @@ class FiltroProcedimento{
 }
 
 function pesquisar_procedimento(){
-	let request = new Request();
+	let request = new HTTPRequest();
 	let opcoes = {
 		'method': 'post',
 		'payload': {
 			'j_username': 'publico',
 			'j_password': 'publico'
 		}
-	}
-	let request = UrlFetchApp.fetch(SIGTAP + APP, opcoes)
-	console.log(request.getContentText())
-	let request = UrlFetchApp.fetch(SIGTAP + PUBLICADOS)
-	console.log(request.getContentText())
+	};
+	request.get(SIGTAP + SECURITY_CHECK);
+	console.log(request.resposta.getContentText());
+	request.post(SIGTAP + SECURITY_CHECK, opcoes);
+	console.log(request.resposta.getContentText());
 }
 
 function doGet(){
