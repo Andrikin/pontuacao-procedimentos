@@ -8,9 +8,29 @@ const URLS = {
 	'sigtap': 'http://sigtap.datasus.gov.br/tabela-unificada/app/sec/inicio.jsp',
 	'security-check': 'http://sigtap.datasus.gov.br/tabela-unificada/app/sec/j_security_check',
 	'publicados': 'http://sigtap.datasus.gov.br/tabela-unificada/app/sec/relatorio/procedimentoAtributos/publicados',
+	'consulta': 'http://sigtap.datasus.gov.br/tabela-unificada/app/sec/procedimento/exibir/',
 }
 const FORMULARIOS = {
 	'consulta': {
+		'formConsultarProcedimento:grupo': '0',
+		'formConsultarProcedimento:codigo': '',
+		'formConsultarProcedimento:nome': '',
+		'formConsultarProcedimento:codigoOrigemConsulta': '',
+		'formConsultarProcedimento:nomeOrigemConsulta': '',
+		'formConsultarProcedimento:tipoDocumento': '0',
+		'formConsultarProcedimento:numeroDocumento': '',
+		'formConsultarProcedimento:ano': '',
+		'formConsultarProcedimento:orgaoOrigem': '0',
+		'formConsultarProcedimento:competencia': '726',
+		'formConsultarProcedimento:localizar.x': '33',
+		'formConsultarProcedimento:localizar.y': '31',
+		'autoScroll': '0,0',
+		'formConsultarProcedimento_SUBMIT': '1',
+		'formConsultarProcedimento:_link_hidden_': '',
+		'formConsultarProcedimento:_idcl': '',
+		'javax.faces.ViewState': '',
+	},
+	'consulta_completa': {
 		'formRelatorio:tipoRelatorio': 'Completo',
 		'formRelatorio:competenciaDisponivel': '',
 		'formRelatorio:grupo': '0',
@@ -57,6 +77,22 @@ const FORMULARIOS = {
 }
 
 // ==================== Início preparação ====================
+
+
+class ProjetoError extends Error{
+	constructor(mensagem){
+		super(mensagem)
+		this.name = 'ProjetoError'
+	}
+}
+
+class HtmlNaoEncontradoError extends ProjetoError{
+	constructor(mensagem){
+		super(mensagem)
+		this.name = 'HtmlError'
+	}
+}
+
 
 // TODO: Melhorar gerenciamento de cookie
 class Cookie{
@@ -241,48 +277,141 @@ class FiltroProcedimento{
 	}
 }
 
+// TODO: Retornar valor nulo caso não encontre informação
 class Procedimento{
-	constructor(){
-		this.informacoes = {}
-		// this._chave = ''; // tracking 
+	constructor(html){
+		// this._html = html
+		this.$ = Cheerio.load(html, null, false)
 	}
-	// registrar_dados(dados){
-	// }
-	// registrar_principal(informacao){
-	// 	console.log(informacao)
-	// 	if(! informacao || /^\s+$/.test(informacao)){
-	// 		return
-	// 	}
-	// 	if(/:/.test(informacao)){
-	// 		let chave = informacao.replace(/:/g, '').replace(/\s+/g, '')
-	// 		this.informacoes[chave] = ''
-	// 		this._chave = chave
-	// 	} else {
-	// 		this.informacoes[this._chave] = informacao
-	// 	}
-	// }
-	// registrar_cbo(informcao){
-	// }
-	// registrar_cids(informacao){
-	// }
-	// registrar_leito(informacao){
-	// }
-	// registrar_servico(informacao){
-	// }
-	// registrar_descricao(informacao){
-	// }
-	// registrar_habilitacao(informacao){
-	// }
-	// registrar_redes(informacao){
-	// }
-	// registrar_origem(informacao){
-	// }
-	// registrar_regra_condicionada(informacao){
-	// }
-	// registrar_renases(informacao){
-	// }
-	// registrar_tuss(informacao){
-	// }
+	get procedimento(){
+		return this.$('#procedimento').text()
+	}
+	get grupo(){
+		return this.$('#grupo').text()
+	}
+	get subgrupo(){
+		return this.$('#subgrupo').text()
+	}
+	get forma_organizacao(){
+		return this.$('#formaOrganizacao').text()
+	}
+	get competencia(){
+		return this.$('#competencia').text()
+	}
+	get complexidade(){
+		return this.$('#tipoComplexidade').text()
+	}
+	get financiamento(){
+		return this.$('#financiamento').text()
+	}
+	get sub_financiamento(){
+		return this.$('#rubrica').text()
+	}
+	get disponibilidade_genero(){
+		// Retorna disponibilidade do procedimento para gênero
+		return this.$('#sexo').text()
+	}
+	get media_permanencia(){
+		return this.$('#qtdDiasPermanencia').text()
+	}
+	get dias_permanencia(){
+		return this.$('#qtdTempoPermanencia').text()
+	}
+	get qtd_maxima_execucao(){
+		return this.$('#qtdMaximaExecucao').text()
+	}
+	get idade_minima(){
+		return this.$('#idadeMinima').text()
+	}
+	get qtd_pontos(){
+		return this.$('#qtdPontos').text()
+	}
+	get servico_ambulatorial(){
+		return this.$('#valorSA').text()
+	}
+	get servico_hospitalar(){
+		return this.$('#valorSH').text()
+	}
+	get total_ambulatorial(){
+		return this.$('#valorSA_Total').text()
+	}
+	get servico_profissional(){
+		return this.$('#valorSP').text()
+	}
+	get total_hopitalar(){
+		return this.$('#totalInternacao').text()
+	}
+	get cbo(){
+		let cbos = []
+		let tabela = null
+		try{
+			tabela = this.$('tbody[id="_idJsp272:_idJsp274:_idJsp275:tbody_element"]').find('tr')
+		}catch(e){
+			console.log(e)
+			return cbos
+		}
+		tabela.each(
+			(_, linha) => {
+				let codigo = this.$(linha).find('td[class="codigoMedio"]').text()
+				let descricao = this.$(linha).find('td[class="nomeMed"]').text()
+				cbos.push(
+					{
+						'codigo': codigo,
+						'descricao': descricao,
+					}
+				)
+			}
+		)
+		return cbos
+	}
+	get categoria_cbo(){
+		let categorias = []
+		let tabela = null
+		try{
+			tabela = this.$('tbody[id="_idJsp272:_idJsp282:_idJsp283:tbody_element"]').find('tr')
+		}catch(e){
+			console.log(e)
+			return categorias
+		}
+		tabela.each(
+			(_, linha) => {
+				categorias.push(
+					this.$(linha).find('td[class="nomeMed"]').text()
+				)
+			}
+		)
+		return categorias
+	}
+	get cids(){
+		return this._cids
+	}
+	get leito(){
+		return this._leito
+	}
+	get servico(){
+		return this._servico
+	}
+	get descricao(){
+		return this._descricao
+	}
+	get habilitacao(){
+		return this._habilitacao
+	}
+	get redes(){
+		return this._redes
+	}
+	get origem(){
+		return this._origem
+	}
+	get regra_condicionada(){
+		return this._regra_condicionada
+	}
+	get renases(){
+		return this._renases
+	}
+	get tuss(){
+		return this._tuss
+	}
 }
 
 // TODO: Criar erros customizados!
@@ -293,13 +422,21 @@ class Consulta{
 		this._codigo_disponivel = ''
 	}
 	get javax_faces_viewstate(){
-		this._javax_faces_viewstate = this.resposta.match(/value=\"(\/N\/.*)?\"/)[1]
+		try{
+			this._javax_faces_viewstate = this.resposta.match(/value=\"(\/N\/.*)?\"/)[1]
+		}catch(e){
+			throw new HtmlNaoEncontradoError('Variável javax.faces.Viewstate não encontrado!')
+		}
 		return this._javax_faces_viewstate
 	}
 	get consulta_disponivel(){
 		let hoje = Utilities.formatDate(new Date(), 'GMT-3', 'MM/yyyy')
 		let regex = new RegExp(`<option value="(\\d+?)">${hoje}</option>`)
-		this._codigo_disponivel = this.resposta.match(regex)[1]
+		try{
+			this._codigo_disponivel = this.resposta.match(regex)[1]
+		}catch(e){
+			throw HtmlNaoEncontradoError('Url para pesquisa do procedimento não encontrado!')
+		}
 		return this._codigo_disponivel
 	}
 	get resposta(){
@@ -318,19 +455,19 @@ class Consulta{
 		)
 	}
 	pesquisar(id){
-		this._request.get(
-			URLS['publicados']
-		)
+		let mes = Utilities.formatDate(new Date(), 'GMT-3', 'MM')
+		let ano = new Date().getFullYear()
 		let formulario = FORMULARIOS['consulta']
-		formulario['formRelatorio:numeroProcedimento'] = id
+		formulario['formConsultarProcedimento:codigo'] = id
 		formulario['javax.faces.ViewState'] = this.javax_faces_viewstate
-		formulario['formRelatorio:competenciaDisponivel'] = this.consulta_disponivel
-		console.log(formulario)
 		this._request.post(
-			URLS['publicados'],
+			URLS['sigtap'],
 			{
 				'payload': formulario,
 			}
+		)
+		this._request.get(
+			`${URLS['consulta']}/${id}/${mes}/${ano}`,
 		)
 	}
 }
@@ -340,7 +477,9 @@ function main(){
 	let consulta = new Consulta()
 	consulta.login()
 	consulta.pesquisar('0413010015')
-	console.log(consulta.resposta)
+	let procedimento = new Procedimento(consulta.resposta)
+	console.log(procedimento.cbo)
+	console.log(procedimento.categoria_cbo)
 }
 
 function doGet(){
