@@ -383,34 +383,34 @@ class Procedimento{
 		return categorias
 	}
 	get cids(){
-		return this._cids
+		return ''
 	}
 	get leito(){
-		return this._leito
+		return ''
 	}
 	get servico(){
-		return this._servico
+		return ''
 	}
 	get descricao(){
-		return this._descricao
+		return ''
 	}
 	get habilitacao(){
-		return this._habilitacao
+		return ''
 	}
 	get redes(){
-		return this._redes
+		return ''
 	}
 	get origem(){
-		return this._origem
+		return ''
 	}
 	get regra_condicionada(){
-		return this._regra_condicionada
+		return ''
 	}
 	get renases(){
-		return this._renases
+		return ''
 	}
 	get tuss(){
-		return this._tuss
+		return ''
 	}
 }
 
